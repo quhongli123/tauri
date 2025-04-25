@@ -4,8 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev": "cross-env RUST_BACKTRACE=1 tauri dev",
+    "build": "cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build",
+    "tauri": "tauri",
     "preview": "vite preview",
     "web:dev": "remix vite:dev",
     "web:build": "remix vite:build",
