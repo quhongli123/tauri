@@ -12,23 +12,16 @@ jobs:
 
     strategy:
       matrix:
-        arch: [aarch64, armv7l]
+        arch: [aarch64]
         include:
           - arch: aarch64
             cpu: cortex-a72
             base_image: https://dietpi.com/downloads/images/DietPi_RPi5-ARMv8-Bookworm.img.xz
             deb: arm64
-            rpm: aarch64
             appimage: aarch64
-          - arch: armv7l
-            cpu: cortex-a53
-            deb: armhfp
-            rpm: arm
-            appimage: armhf
-            base_image: https://dietpi.com/downloads/images/DietPi_RPi-ARMv7-Bookworm.img.xz
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
       - name: Cache rust build artifacts
         uses: Swatinem/rust-cache@v2
@@ -44,7 +37,6 @@ jobs:
           bind_mount_repository: true
           image_additional_mb: 10240
           optimize_image: no
-          #exit_on_fail: no
           commands: |
             # Prevent Rust from complaining about $HOME not matching eid home
             export HOME=/root
@@ -55,36 +47,52 @@ jobs:
             # Install setup prerequisites
             apt-get update -y --allow-releaseinfo-change
             apt-get autoremove -y
-            apt-get install -y --no-install-recommends --no-install-suggests curl libwebkit2gtk-4.1-dev build-essential libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2 file
+            apt-get install -y --no-install-recommends --no-install-suggests curl libwebkit2gtk-4.0-dev build-essential libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2 file
             curl https://sh.rustup.rs -sSf | sh -s -- -y
             . "$HOME/.cargo/env"
             curl -fsSL https://deb.nodesource.com/setup_lts.x | bash
             apt-get install -y nodejs
 
-            # Install frontend dependencies
-            npm install
+            # Install pnpm
+            npm install -g pnpm
+
+            # 修改 tauri.conf.json 设置目标格式
+            cd /tmp/repository
+            sed -i 's/"targets": "all"/"targets": ["deb", "appimage"]/' src-tauri/tauri.conf.json
+            cat src-tauri/tauri.conf.json
+
+            # Install dependencies
+            pnpm install --no-frozen-lockfile
+
+            # Build frontend
+            pnpm build
+
+            # Install Tauri CLI
+            cargo install tauri-cli
 
             # Build the application
-            npm run tauri build -- --verbose
+            cd src-tauri
+            cargo tauri build --verbose
 
       - name: Get app version
         run: echo "APP_VERSION=$(jq -r .version src-tauri/tauri.conf.json)" >> $GITHUB_ENV
 
-      # TODO: Combine this with the basic workflow and upload the files to the Release.
+      - name: Get app name
+        run: echo "APP_NAME=$(jq -r .productName src-tauri/tauri.conf.json)" >> $GITHUB_ENV
+
+      - name: List build files
+        run: |
+          ls -la ${{ github.workspace }}/src-tauri/target/release/bundle/deb/ || true
+          ls -la ${{ github.workspace }}/src-tauri/target/release/bundle/appimage/ || true
+
       - name: Upload deb bundle
         uses: actions/upload-artifact@v3
         with:
-          name: Debian Bundle
-          path: ${{ github.workspace }}/src-tauri/target/release/bundle/deb/appname_${{ env.APP_VERSION }}_${{ matrix.deb }}.deb
-
-      - name: Upload rpm bundle
-        uses: actions/upload-artifact@v3
-        with:
-          name: RPM Bundle
-          path: ${{ github.workspace }}/src-tauri/target/release/bundle/rpm/appname-${{ env.APP_VERSION }}-1.${{ matrix.rpm }}.rpm
+          name: Debian ARM64 Bundle
+          path: ${{ github.workspace }}/src-tauri/target/release/bundle/deb/*.deb
 
       - name: Upload appimage bundle
         uses: actions/upload-artifact@v3
         with:
-          name: AppImage Bundle
-          path: ${{ github.workspace }}/src-tauri/target/release/bundle/appimage/appname_${{ env.APP_VERSION }}_${{ matrix.appimage }}.AppImage
+          name: AppImage ARM64 Bundle
+          path: ${{ github.workspace }}/src-tauri/target/release/bundle/appimage/*.AppImage
