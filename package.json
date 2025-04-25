@@ -18,32 +18,45 @@
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-opener": "^2",
-    "cli-color": "^2.0.4",
     "uuid": "^11.0.5",
-    "@remix-run/node": "^2.15.2",
-    "@remix-run/react": "^2.15.2",
-    "@remix-run/serve": "^2.15.2",
+    "@tauri-apps/api": "^2.2.0",
     "@tauri-apps/plugin-autostart": "^2.2.0",
     "@tauri-apps/plugin-clipboard-manager": "^2.2.0",
     "@tauri-apps/plugin-dialog": "^2.2.0",
     "@tauri-apps/plugin-fs": "~2",
     "@tauri-apps/plugin-log": "~2.2.0",
     "@tauri-apps/plugin-notification": "^2.2.1",
+    "@tauri-apps/plugin-opener": "^2.2.5",
     "@tauri-apps/plugin-os": "^2.2.0",
     "@tauri-apps/plugin-process": "^2.2.0",
     "@tauri-apps/plugin-shell": "^2.2.0",
     "@tauri-apps/plugin-sql": "^2.2.0",
-    "@tauri-apps/plugin-updater": "^2.3.1"
+    "@tauri-apps/plugin-updater": "^2.3.1",
+    "cli-color": "^2.0.4",
+    "framer-motion": "^11.18.1",
+    "isbot": "^5.1.21",
+    "js-base64": "^3.7.7",
+    "js-yaml": "^4.1.0",
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
+    "@actions/github": "^6.0.0",
+     "@remix-run/dev": "^2.15.2",
+    "@tauri-apps/cli": "^2.2.5",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "~5.6.2",
-    "vite": "^6.0.3",
-    "@tauri-apps/cli": "^2"
+    "vite": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "prettier": {
+    "tabWidth": 2,
+    "semi": true,
+    "singleQuote": true,
+    "endOfLine": "lf"
   },
   "packageManager": "pnpm@9.15.4"
 }
