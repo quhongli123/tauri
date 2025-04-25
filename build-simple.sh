@@ -1,4 +1,14 @@
 #!/bin/bash
+###
+ # @Author: 曲洪利 quhongli999@163.com
+ # @Date: 2025-04-25 09:48:31
+ # @LastEditors: 曲洪利 quhongli999@163.com
+ # @LastEditTime: 2025-04-25 10:33:15
+ # @FilePath: /tauri-app/build-simple.sh
+ # @Description: 
+ # 
+ # Copyright (c) 2025 by ${git_name_email}, All Rights Reserved. 
+### 
 set -e  # 遇到错误立即退出
 
 # 清理旧的容器和镜像
