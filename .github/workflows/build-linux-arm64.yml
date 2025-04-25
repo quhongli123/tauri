@@ -19,6 +19,7 @@ jobs:
       
       - name: Install dependencies
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.0-dev \
@@ -27,22 +28,17 @@ jobs:
             librsvg2-dev \
             gcc-aarch64-linux-gnu \
             g++-aarch64-linux-gnu \
-            libjavascriptcoregtk-4.0-dev \
-            libsoup-3.0-dev \
             libsoup2.4-dev \
-            pkg-config
+            libjavascriptcoregtk-4.0-dev
             
-      - name: Set PKG_CONFIG_PATH
+      - name: Configure cross-compilation environment
         run: |
-          # 安装 ARM64 的 libsoup3 库
-          sudo apt-get install -y libsoup-3.0-dev:arm64
-          # 确保 pkg-config 能找到 ARM64 版本的 .pc 文件
-          sudo mkdir -p /usr/lib/aarch64-linux-gnu/pkgconfig/
-          # 复制 libsoup-3.0.pc 文件到 ARM64 目录
-          sudo cp /usr/lib/x86_64-linux-gnu/pkgconfig/libsoup-3.0.pc /usr/lib/aarch64-linux-gnu/pkgconfig/
-          # 设置 PKG_CONFIG_PATH 环境变量
-          echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
+          # 创建必要的目录
+          sudo mkdir -p /usr/aarch64-linux-gnu/lib/pkgconfig
+          
+          # 设置环境变量
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -64,6 +60,24 @@ jobs:
       - name: Setup cargo-tauri
         run: cargo install tauri-cli
       
+      - name: Modify Tauri config
+        run: |
+          # 修改 tauri.conf.json 以使用 deb 和 appimage 打包格式
+          sed -i 's/"targets": "all"/"targets": ["deb", "appimage"]/' src-tauri/tauri.conf.json
+          # 减少依赖，移除不必要的插件
+          cat src-tauri/tauri.conf.json
+      
+      - name: Modify Cargo.toml
+        run: |
+          # 修改 Cargo.toml 使用 libsoup2.4 而非 libsoup3
+          cd src-tauri
+          if grep -q 'features = \["api-all"\]' Cargo.toml; then
+            sed -i 's/features = \["api-all"\]/features = \["api-all", "libsoup"\]/' Cargo.toml
+          else
+            sed -i 's/features = \[\]/features = \["libsoup"\]/' Cargo.toml
+          fi
+          cat Cargo.toml
+      
       - name: Build Linux ARM64 package
         run: |
           # 配置交叉编译环境
@@ -78,10 +92,7 @@ jobs:
           
           # 打印环境变量以便调试
           echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
-          ls -la /usr/lib/aarch64-linux-gnu/pkgconfig/
-          
-          # 修改 tauri.conf.json 以确保包含 Linux ARM64 目标
-          sed -i 's/"targets": "all"/"targets": ["deb", "appimage"]/' src-tauri/tauri.conf.json
+          echo "PKG_CONFIG_ALLOW_CROSS=$PKG_CONFIG_ALLOW_CROSS"
           
           # 构建
           cd src-tauri
