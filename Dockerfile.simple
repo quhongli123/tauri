@@ -1,0 +1,33 @@
+FROM rust:slim
+
+# 避免交互式配置
+ARG DEBIAN_FRONTEND=noninteractive
+
+# 安装基本工具和依赖
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    libwebkit2gtk-4.0-dev \
+    libgtk-3-dev \
+    libayatana-appindicator3-dev \
+    librsvg2-dev \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装 pnpm
+RUN npm install -g pnpm
+
+# 安装 Tauri CLI
+RUN cargo install tauri-cli
+
+# 设置工作目录
+WORKDIR /app
+
+# 将源代码复制到容器中
+COPY . .
+
+# 构建应用程序
+CMD ["sh", "-c", "pnpm install && pnpm build && cd src-tauri && cargo tauri build"] 
