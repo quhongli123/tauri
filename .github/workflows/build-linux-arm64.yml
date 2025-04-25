@@ -13,35 +13,25 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Setup rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions-rs/toolchain@v1
         with:
-          targets: aarch64-unknown-linux-gnu
+          toolchain: stable
+          target: aarch64-unknown-linux-gnu
+          override: true
       
       - name: Install dependencies
         run: |
-          sudo dpkg --add-architecture arm64
           sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.0-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            gcc-aarch64-linux-gnu \
-            g++-aarch64-linux-gnu \
-            libsoup2.4-dev \
-            libjavascriptcoregtk-4.0-dev
-            
-      - name: Configure cross-compilation environment
-        run: |
-          # 创建必要的目录
-          sudo mkdir -p /usr/aarch64-linux-gnu/lib/pkgconfig
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libjavascriptcoregtk-4.0-dev
           
-          # 设置环境变量
-          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+      - name: Configure cross compile environment
+        run: |
+          sudo mkdir -p /usr/lib/aarch64-linux-gnu/pkgconfig/
           echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
       
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
       
@@ -49,53 +39,53 @@ jobs:
         uses: pnpm/action-setup@v2
         with:
           version: latest
-          run_install: false
       
       - name: Install dependencies
         run: pnpm install
       
       - name: Build frontend
         run: pnpm build
-      
-      - name: Setup cargo-tauri
-        run: cargo install tauri-cli
-      
-      - name: Modify Tauri config
+        
+      - name: Modify tauri.conf.json
         run: |
-          # 修改 tauri.conf.json 以使用 deb 和 appimage 打包格式
-          sed -i 's/"targets": "all"/"targets": ["deb", "appimage"]/' src-tauri/tauri.conf.json
-          # 减少依赖，移除不必要的插件
+          # 修改 tauri.conf.json 设置目标格式
+          sed -i 's/"targets": "all"/"targets": ["deb"]/' src-tauri/tauri.conf.json
           cat src-tauri/tauri.conf.json
       
       - name: Modify Cargo.toml
         run: |
-          # 修改 Cargo.toml 使用 libsoup2.4 而非 libsoup3
+          # 修改 Cargo.toml 来使用 libsoup 特性
           cd src-tauri
-          if grep -q 'features = \["api-all"\]' Cargo.toml; then
-            sed -i 's/features = \["api-all"\]/features = \["api-all", "libsoup"\]/' Cargo.toml
-          else
-            sed -i 's/features = \[\]/features = \["libsoup"\]/' Cargo.toml
+          
+          # 备份原始文件
+          cp Cargo.toml Cargo.toml.bak
+          
+          # 检查并添加 libsoup 特性
+          if grep -q 'tauri = { version = "2"' Cargo.toml; then
+            # 添加 libsoup 特性
+            sed -i 's/tauri = { version = "2", features = \[\]/tauri = { version = "2", features = \["libsoup"\]/' Cargo.toml
+            # 如果已经有其他特性，则添加 libsoup
+            sed -i 's/tauri = { version = "2", features = \["/tauri = { version = "2", features = \["libsoup", "/' Cargo.toml
           fi
+          
+          # 显示修改后的内容
           cat Cargo.toml
+      
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli
       
       - name: Build Linux ARM64 package
         run: |
-          # 配置交叉编译环境
+          cd src-tauri
+          # 配置 Cargo 使用交叉编译工具链
           mkdir -p ~/.cargo
           echo '[target.aarch64-unknown-linux-gnu]' > ~/.cargo/config.toml
           echo 'linker = "aarch64-linux-gnu-gcc"' >> ~/.cargo/config.toml
-          
           # 设置环境变量
+          export PKG_CONFIG_ALLOW_CROSS=1
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-          export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
-          export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
           
-          # 打印环境变量以便调试
-          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
-          echo "PKG_CONFIG_ALLOW_CROSS=$PKG_CONFIG_ALLOW_CROSS"
-          
-          # 构建
-          cd src-tauri
+          # 使用 --verbose 查看更多信息
           cargo tauri build --target aarch64-unknown-linux-gnu --verbose
       
       - name: Upload Linux ARM64 artifacts
@@ -103,5 +93,4 @@ jobs:
         with:
           name: linux-arm64-packages
           path: |
-            src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb/*.deb
-            src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/appimage/*.AppImage 
+            src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb/*.deb 
