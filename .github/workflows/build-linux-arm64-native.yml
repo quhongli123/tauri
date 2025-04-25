@@ -1,0 +1,37 @@
+name: Build Linux ARM64 (Native)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build using ARM64 Docker container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: .github/workflows/Dockerfile.arm64
+          push: false
+          tags: tauri-app:arm64
+          platforms: linux/arm64
+          outputs: type=local,dest=./output
+      
+      - name: List build artifacts
+        run: ls -la ./output || true
+        
+      - name: Upload ARM64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64-packages
+          path: |
+            ./output/*.deb
+            ./output/bundle/**/*.deb 

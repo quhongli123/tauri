@@ -20,9 +20,9 @@ docker rmi -f tauri-builder-simple 2>/dev/null || true
 echo "开始构建 Docker 镜像..."
 docker build -t tauri-builder-simple -f Dockerfile.simple .
 
-# 运行容器并构建应用
+# 运行容器并构建应用（添加非交互式运行）
 echo "在容器中运行构建过程..."
-docker run --name tauri-builder-simple tauri-builder-simple || {
+docker run --name tauri-builder-simple -e PNPM_YES=true tauri-builder-simple || {
     echo "构建失败，正在导出日志..."
     docker logs tauri-builder-simple > build-error.log
     echo "错误日志已保存到 build-error.log 文件"

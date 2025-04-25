@@ -24,6 +24,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libjavascriptcoregtk-4.0-dev
           
+      - name: Install cross-compile arm64 packages
+        run: |
+          # 确保有 ARM64 架构支持
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev:arm64 libgtk-3-dev:arm64 libayatana-appindicator3-dev:arm64 libc6-dev:arm64
+          
       - name: Configure cross compile environment
         run: |
           sudo mkdir -p /usr/lib/aarch64-linux-gnu/pkgconfig/
@@ -52,25 +59,24 @@ jobs:
           sed -i 's/"targets": "all"/"targets": ["deb"]/' src-tauri/tauri.conf.json
           cat src-tauri/tauri.conf.json
       
-      - name: Modify Cargo.toml
+      - name: Setup custom pkg-config
         run: |
-          # 修改 Cargo.toml 来使用 libsoup 特性
-          cd src-tauri
-          
-          # 备份原始文件
-          cp Cargo.toml Cargo.toml.bak
-          
-          # 检查并添加 libsoup 特性
-          if grep -q 'tauri = { version = "2"' Cargo.toml; then
-            # 添加 libsoup 特性
-            sed -i 's/tauri = { version = "2", features = \[\]/tauri = { version = "2", features = \["libsoup"\]/' Cargo.toml
-            # 如果已经有其他特性，则添加 libsoup
-            sed -i 's/tauri = { version = "2", features = \["/tauri = { version = "2", features = \["libsoup", "/' Cargo.toml
+          # 创建一个包装脚本来处理 pkg-config 调用
+          cat > pkg-config-wrapper.sh << 'EOF'
+          #!/bin/bash
+          if [[ $1 == *"javascriptcoregtk-4.1"* || $1 == *"libsoup-3.0"* ]]; then
+            # 对于这些特定包，提供一个虚拟的配置
+            echo "-I/usr/include/aarch64-linux-gnu -L/usr/lib/aarch64-linux-gnu"
+            exit 0
           fi
+          # 否则调用真正的 pkg-config
+          /usr/bin/pkg-config "$@"
+          EOF
           
-          # 显示修改后的内容
-          cat Cargo.toml
-      
+          chmod +x pkg-config-wrapper.sh
+          sudo mv pkg-config-wrapper.sh /usr/local/bin/pkg-config-arm64
+          echo "PKG_CONFIG=/usr/local/bin/pkg-config-arm64" >> $GITHUB_ENV
+          
       - name: Install Tauri CLI
         run: cargo install tauri-cli
       
@@ -81,12 +87,13 @@ jobs:
           mkdir -p ~/.cargo
           echo '[target.aarch64-unknown-linux-gnu]' > ~/.cargo/config.toml
           echo 'linker = "aarch64-linux-gnu-gcc"' >> ~/.cargo/config.toml
+          
           # 设置环境变量
           export PKG_CONFIG_ALLOW_CROSS=1
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           
-          # 使用 --verbose 查看更多信息
-          cargo tauri build --target aarch64-unknown-linux-gnu --verbose
+          # 尝试使用不同的方法构建
+          RUSTFLAGS="-C link-args=-ljavascriptcoregtk-4.1" cargo tauri build --target aarch64-unknown-linux-gnu --verbose
       
       - name: Upload Linux ARM64 artifacts
         uses: actions/upload-artifact@v4
