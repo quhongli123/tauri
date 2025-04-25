@@ -1,12 +1,10 @@
 name: Release Build
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
-permissions: write-all
-env:
-  CARGO_INCREMENTAL: 0
-  RUST_BACKTRACE: short
-
 jobs:
   release:
     strategy:
